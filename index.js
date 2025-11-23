@@ -6,6 +6,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+// CONFIG DA Z-API
 const ZAPI_TOKEN = "27007D267B55D0B069029678";
 const INSTANCE = "3EA9E26D9B54A1959179B2694663CF7D";
 
@@ -14,53 +15,64 @@ const API = axios.create({
   headers: { "Content-Type": "application/json" }
 });
 
-// Enviar texto
+// ENVIAR TEXTO
 async function sendText(phone, message) {
   try {
     await API.post("/send-text", { phone, message });
-  } catch (error) {
-    console.log("❌ Erro sendText:", error.response?.data || error.message);
+    console.log("📤 Enviado para:", phone);
+  } catch (e) {
+    console.log("❌ Erro sendText:", e.response?.data || e.message);
   }
 }
 
-// Menu Inicial
+// MENU PRINCIPAL
 async function menuInicial(phone) {
-  await sendText(phone, "👋 Olá! Eu sou a Dentina. Como posso te ajudar?");
+  await sendText(
+    phone,
+    "💁‍♀️ Olá! Eu sou a *Dentina*, assistente virtual da *Ameclin*. Como posso te ajudar?"
+  );
 }
 
-// Webhook
+// WEBHOOK (AQUI LEMOS O FORMATO REAL DA SUA Z-API)
 app.post("/webhook", async (req, res) => {
   console.log("📩 RECEBIDO DA Z-API:", JSON.stringify(req.body, null, 2));
 
   const data = req.body;
 
-  // Número
-  const phone = data.phone;
+  // PEGA TELEFONE
+  const phone = data.phone || data?.text?.phone;
   if (!phone) return res.sendStatus(200);
 
-  // Mensagem — novo formato da Z-API
-  let texto = "";
+  // PEGA O TEXTO DA MENSAGEM ***AQUI ESTÁ O SEGREDO***
+  const textoRecebido =
+    data?.text?.message ||   // FORMATO REAL DO SEU LOG
+    data?.message?.text ||   // FORMATO ANTIGO
+    data?.message ||         // CASO VENHA PURO
+    "";
 
-  if (data?.text?.message) {
-    texto = data.text.message.toLowerCase().trim();
-  }
+  const texto = textoRecebido.toLowerCase().trim();
 
-  // Debug: ver texto extraído
-  console.log("📌 TEXTO CAPTURADO:", texto);
-
-  // Fluxos
-  if (texto === "oi" || texto === "ola" || texto === "bom dia" || texto === "boa tarde") {
+  // INÍCIO DE CONVERSA
+  if (["oi", "ola", "/start", "bom dia", "boa tarde", "boa noite"].includes(texto)) {
     await menuInicial(phone);
     return res.sendStatus(200);
   }
 
-  // Respostas simples
-  await sendText(phone, "Recebi sua mensagem: " + texto);
+  // RESPOSTAS BÁSICAS
+  if (texto.includes("agendar")) {
+    await sendText(phone, "Vamos agendar sua avaliação! Qual especialidade deseja?");
+    return res.sendStatus(200);
+  }
 
+  if (texto.includes("endereco") || texto.includes("endereço")) {
+    await sendText(phone, "📍 Rua São José dos Pinhais, 200 — Sítio Cercado");
+    return res.sendStatus(200);
+  }
+
+  // SE NÃO RECONHECE → MENU
+  await menuInicial(phone);
   res.sendStatus(200);
 });
 
-// Iniciar servidor
-app.listen(3000, () => {
-  console.log("🤖 Dentina rodando na porta 3000");
-});
+// INICIAR
+app.listen(3000, () => console.log("🤖 Dentina rodando no Railway"));
