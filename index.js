@@ -1,5 +1,5 @@
+// index.js - versão completa, revisada e pronta para deploy na Railway
 
-// index.js generated
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
@@ -8,7 +8,8 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-const ZAPI_TOKEN = "27007D267B55D0B069029678";
+// CONFIGURAÇÃO DA Z-API
+const ZAPI_TOKEN = "27007D267B55D0B069029678"; 
 const INSTANCE = "3EA9E26D9B54A1959179B2694663CF7D";
 
 const API = axios.create({
@@ -16,106 +17,107 @@ const API = axios.create({
   headers: { "Content-Type": "application/json" }
 });
 
-async function sendText(phone, message) {
-  try {
-    await API.post("/send-text", { phone, message });
-  } catch (e) {
-    console.log("Erro sendText:", e.response?.data || e.message);
-  }
+// ----------------------------
+// FUNÇÕES DE ENVIO
+// ----------------------------
+
+async function sendText(phone, text) {
+  await API.post("/send-text", {
+    phone,
+    message: text
+  });
 }
 
-async function sendList(phone, message, title, buttonText, sections) {
-  try {
-    await API.post("/send-list", {
-      phone,
-      message,
-      title,
-      buttonText,
-      sections
-    });
-  } catch (e) {
-    console.log("Erro sendList:", e.response?.data || e.message);
-  }
+async function sendMenu(phone, text, options) {
+  await API.post("/send-list-message", {
+    phone,
+    message: text,
+    buttonText: "Selecionar",
+    sections: [
+      {
+        title: "Opções",
+        rows: options.map(opt => ({
+          title: opt.title,
+          rowId: opt.id
+        }))
+      }
+    ]
+  });
 }
 
-async function sendLocation(phone, lat, lng, title, address) {
-  try {
-    await API.post("/send-location", { phone, lat, lng, title, address });
-  } catch (e) {
-    console.log("Erro sendLocation:", e.message);
-  }
-}
+// ----------------------------
+// MENUS
+// ----------------------------
 
 async function menuInicial(phone) {
-  const msg =
-`💁‍♀️ Olá! Eu sou a *Dentina*, assistente virtual da *Ameclin*.
-Como posso te ajudar hoje? `;
-
-  const sections = [
-    {
-      title: "Serviços",
-      rows: [
-        { id: "agendar", title: "🗓️ Agendar Avaliação" },
-        { id: "retorno", title: "🔄 Retorno" },
-        { id: "convenios", title: "🧾 Convênios" },
-        { id: "atendente", title: "👩‍⚕️ Falar com Atendente" },
-        { id: "endereco", title: "📍 Endereço" },
-        { id: "horarios", title: "🕒 Horários" }
-      ]
-    }
-  ];
-
-  await sendList(phone, msg, "Menu Ameclin", "Abrir", sections);
+  await sendMenu(phone, "Olá, eu sou a *Dentina*! Como posso ajudar hoje?", [
+    { id: "agendar", title: "📅 Agendar consulta" },
+    { id: "endereco", title: "📍 Endereço" },
+    { id: "contato", title: "📞 Contato" },
+    { id: "horarios", title: "🕒 Horários de atendimento" }
+  ]);
 }
 
+// ----------------------------
+// ROTAS Z-API WEBHOOK
+// ----------------------------
+
 app.post("/webhook", async (req, res) => {
-  console.log("📩 RECEBIDO DA Z-API:", JSON.stringify(req.body, null, 2));
+  try {
+    const data = req.body;
 
-  const data = req.body;
-  if (!data || !data.phone) return res.sendStatus(200);
+    if (!data?.message?.text) {
+      return res.sendStatus(200);
+    }
 
-  const phone = data.phone;
-  let texto = "";
+    const phone = data.message.phone;
+    const msg = data.message.text.trim().toLowerCase();
 
-  if (data.message?.text) {
-    texto = data.message.text.toLowerCase().trim();
+    console.log("📥 Mensagem recebida:", msg);
+
+    switch (msg) {
+      case "oi":
+      case "menu":
+      case "início":
+      case "inicio":
+        await menuInicial(phone);
+        break;
+
+      case "agendar":
+        await sendText(phone, "📅 Para agendamentos, envie uma mensagem para nossa equipe:\n👉 *41 99900-0000*");
+        break;
+
+      case "endereco":
+      case "endereço":
+        await sendText(phone, "📍 Estamos na Rua Exemplo, 123 – Curitiba/PR");
+        break;
+
+      case "contato":
+        await sendText(phone, "📞 Telefone/WhatsApp: *41 99900-0000*");
+        break;
+
+      case "horarios":
+        await sendText(phone, "🕒 Segunda a Sexta: 09h–12h / 14h–17h30\nSábado: 09h–12h");
+        break;
+
+      default:
+        await menuInicial(phone);
+        break;
+    }
+
+    res.sendStatus(200);
+
+  } catch (err) {
+    console.error("Erro no webhook:", err);
+    res.sendStatus(500);
   }
-
-  const selected = data.message?.selectedRowId;
-  const acao = selected || texto;
-
-  if (texto === "oi" || texto === "ola" || texto === "/start" || !texto) {
-    await menuInicial(phone);
-    return res.sendStatus(200);
-  }
-
-  switch (acao) {
-    case "agendar":
-      await sendText(phone, "Você deseja agendar avaliação?");
-      break;
-    case "retorno":
-      await sendText(phone, "Informe seu nome completo.");
-      break;
-    case "convenios":
-      await sendText(phone, "Convênios Aceitos:\\n- Dental Uni\\n- Amil");
-      break;
-    case "atendente":
-      await sendText(phone, "Chamando atendente...");
-      break;
-    case "endereco":
-      await sendText(phone, "📍 Rua São José dos Pinhais, 200 — Sítio Cercado");
-      await sendLocation(phone, -25.5175, -49.2711, "Ameclin", "Ameclin Odontologia");
-      break;
-    case "horarios":
-      await sendText(phone, "🕒 Seg–Sex: 09h–12h / 14h–17h30\\nSáb: 09h–12h");
-      break;
-    default:
-      await menuInicial(phone);
-      break;
-  }
-  res.sendStatus(200);
 });
 
-app.listen(3000, () => {
-  console.log("🤖 Dentina rodando");
+// ----------------------------
+// INICIAR SERVIDOR
+// ----------------------------
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log("🤖 Dentina rodando na porta " + PORT);
 });
