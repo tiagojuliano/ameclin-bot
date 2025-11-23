@@ -6,7 +6,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// CONFIG DA Z-API
+// CONFIGURAÇÃO DA Z-API
 const ZAPI_TOKEN = "27007D267B55D0B069029678"; // Substitua pelo seu token
 const INSTANCE = "3EA9E26D9B54A1959179B2694663CF7D"; // Substitua pela sua instância
 
@@ -15,13 +15,13 @@ const API = axios.create({
   headers: { "Content-Type": "application/json" }
 });
 
-// ENVIAR TEXTO
+// FUNÇÃO PARA ENVIAR MENSAGEM DE TEXTO
 async function sendText(phone, message) {
   try {
     await API.post("/send-text", { phone, message });
-    console.log("📤 Mensagem enviada para:", phone);
-  } catch (e) {
-    console.log("❌ Erro ao enviar mensagem:", e.response?.data || e.message);
+    console.log(`📤 Mensagem enviada para ${phone}: ${message}`);
+  } catch (error) {
+    console.error("❌ Erro ao enviar mensagem:", error.response?.data || error.message);
   }
 }
 
@@ -51,7 +51,7 @@ async function responderMensagem(phone, text) {
   }
 }
 
-// WEBHOOK (RECEBE MENSAGENS)
+// WEBHOOK PARA RECEBER MENSAGENS
 app.post("/webhook", async (req, res) => {
   try {
     const message = req.body;
@@ -74,8 +74,8 @@ app.post("/webhook", async (req, res) => {
     }
 
     res.sendStatus(200); // Retorna sucesso para a Z-API
-  } catch (e) {
-    console.log("❌ Erro no webhook:", e.message);
+  } catch (error) {
+    console.error("❌ Erro no webhook:", error.message);
     res.sendStatus(500); // Retorna erro para a Z-API
   }
 });
