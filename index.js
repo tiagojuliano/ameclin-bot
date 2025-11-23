@@ -6,7 +6,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// CONFIG DA Z-API
+// CONFIG Z-API
 const ZAPI_TOKEN = "27007D267B55D0B069029678";
 const INSTANCE = "3EA9E26D9B54A1959179B2694663CF7D";
 
@@ -19,60 +19,57 @@ const API = axios.create({
 async function sendText(phone, message) {
   try {
     await API.post("/send-text", { phone, message });
-    console.log("📤 Enviado para:", phone);
+    console.log("📤 Resposta enviada para:", phone);
   } catch (e) {
-    console.log("❌ Erro sendText:", e.response?.data || e.message);
+    console.log("❌ Erro ao enviar:", e.response?.data || e.message);
   }
 }
 
-// MENU PRINCIPAL
+// MENU
 async function menuInicial(phone) {
   await sendText(
     phone,
-    "💁‍♀️ Olá! Eu sou a *Dentina*, assistente virtual da *Ameclin*. Como posso te ajudar?"
+    "💁‍♀️ Olá! Eu sou a *Dentina*, assistente virtual da *Ameclin*.\nComo posso te ajudar?"
   );
 }
 
-// WEBHOOK (AQUI LEMOS O FORMATO REAL DA SUA Z-API)
+// WEBHOOK COMPATÍVEL COM O SEU FORMATO REAL
 app.post("/webhook", async (req, res) => {
-  console.log("📩 RECEBIDO DA Z-API:", JSON.stringify(req.body, null, 2));
+  try {
+    console.log("📩 RECEBIDO DA Z-API:", JSON.stringify(req.body, null, 2));
 
-  const data = req.body;
+    const body = req.body;
 
-  // PEGA TELEFONE
-  const phone = data.phone || data?.text?.phone;
-  if (!phone) return res.sendStatus(200);
+    // Texto chega AQUI (pelos seus logs):
+    const text = body?.text?.message;
+    const phone = body?.phone;
 
-  // PEGA O TEXTO DA MENSAGEM ***AQUI ESTÁ O SEGREDO***
-  const textoRecebido =
-    data?.text?.message ||   // FORMATO REAL DO SEU LOG
-    data?.message?.text ||   // FORMATO ANTIGO
-    data?.message ||         // CASO VENHA PURO
-    "";
+    // Se faltar algo, não tenta responder
+    if (!text || !phone) {
+      return res.sendStatus(200);
+    }
 
-  const texto = textoRecebido.toLowerCase().trim();
+    const msg = text.trim().toLowerCase();
 
-  // INÍCIO DE CONVERSA
-  if (["oi", "ola", "/start", "bom dia", "boa tarde", "boa noite"].includes(texto)) {
-    await menuInicial(phone);
-    return res.sendStatus(200);
+    // Fluxo inicial
+    if (msg === "oi" || msg === "ola" || msg === "bom dia" || msg === "boa tarde") {
+      await menuInicial(phone);
+      return res.sendStatus(200);
+    }
+
+    // Padrão
+    await sendText(phone, "Desculpe, não consegui entender. Digite *oi* para ver o menu 😊");
+
+    res.sendStatus(200);
+
+  } catch (e) {
+    console.log("❌ Erro no webhook:", e.message);
+    res.sendStatus(500);
   }
-
-  // RESPOSTAS BÁSICAS
-  if (texto.includes("agendar")) {
-    await sendText(phone, "Vamos agendar sua avaliação! Qual especialidade deseja?");
-    return res.sendStatus(200);
-  }
-
-  if (texto.includes("endereco") || texto.includes("endereço")) {
-    await sendText(phone, "📍 Rua São José dos Pinhais, 200 — Sítio Cercado");
-    return res.sendStatus(200);
-  }
-
-  // SE NÃO RECONHECE → MENU
-  await menuInicial(phone);
-  res.sendStatus(200);
 });
 
-// INICIAR
-app.listen(3000, () => console.log("🤖 Dentina rodando no Railway"));
+// INICIAR SERVIDOR
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log("🤖 Dentina rodando no Railway");
+});
