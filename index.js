@@ -6,7 +6,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// CONFIG Z-API
+// CONFIG DA Z-API
 const ZAPI_TOKEN = "27007D267B55D0B069029678";
 const INSTANCE = "3EA9E26D9B54A1959179B2694663CF7D";
 
@@ -19,57 +19,51 @@ const API = axios.create({
 async function sendText(phone, message) {
   try {
     await API.post("/send-text", { phone, message });
-    console.log("📤 Resposta enviada para:", phone);
+    console.log("📤 Enviado para:", phone);
   } catch (e) {
-    console.log("❌ Erro ao enviar:", e.response?.data || e.message);
+    console.log("❌ Erro sendText:", e.response?.data || e.message);
   }
 }
 
-// MENU
+// MENU PRINCIPAL
 async function menuInicial(phone) {
   await sendText(
     phone,
-    "💁‍♀️ Olá! Eu sou a *Dentina*, assistente virtual da *Ameclin*.\nComo posso te ajudar?"
+    "💁‍♀️ Olá! Eu sou a *Dentina*, assistente virtual da *Ameclin*. Como posso te ajudar?"
   );
 }
 
-// WEBHOOK COMPATÍVEL COM O SEU FORMATO REAL
+// WEBHOOK CORRETO PARA O SEU FORMATO REAL
 app.post("/webhook", async (req, res) => {
+  console.log("📩 RECEBIDO:", JSON.stringify(req.body, null, 2));
+
   try {
-    console.log("📩 RECEBIDO DA Z-API:", JSON.stringify(req.body, null, 2));
+    const data = req.body;
 
-    const body = req.body;
+    // Número do remetente
+    const phone = data.phone;
 
-    // Texto chega AQUI (pelos seus logs):
-    const text = body?.text?.message;
-    const phone = body?.phone;
+    // TEXTO REAL RECEBIDO — SEU FORMATO VERDADEIRO
+    const texto =
+      data?.text?.message || data?.text?.body || data?.message || "";
 
-    // Se faltar algo, não tenta responder
-    if (!text || !phone) {
+    if (!phone || !texto) {
+      console.log("⚠️ Sem texto ou telefone");
       return res.sendStatus(200);
     }
 
-    const msg = text.trim().toLowerCase();
+    console.log(`📥 Mensagem de ${phone}: ${texto}`);
 
-    // Fluxo inicial
-    if (msg === "oi" || msg === "ola" || msg === "bom dia" || msg === "boa tarde") {
-      await menuInicial(phone);
-      return res.sendStatus(200);
-    }
+    // Responder
+    await menuInicial(phone);
 
-    // Padrão
-    await sendText(phone, "Desculpe, não consegui entender. Digite *oi* para ver o menu 😊");
-
-    res.sendStatus(200);
-
+    return res.sendStatus(200);
   } catch (e) {
-    console.log("❌ Erro no webhook:", e.message);
-    res.sendStatus(500);
+    console.log("❌ ERRO NO WEBHOOK:", e);
+    return res.sendStatus(500);
   }
 });
 
-// INICIAR SERVIDOR
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log("🤖 Dentina rodando no Railway");
+app.listen(3000, () => {
+  console.log("🤖 Dentina rodando na porta 3000");
 });
