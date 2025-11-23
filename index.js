@@ -1,60 +1,58 @@
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
-const app = express();
 
+const app = express();
 app.use(express.json());
 app.use(cors());
 
-// CONFIG
-const ZAPI_TOKEN = "27007D267B55D0B069029678";
-const INSTANCE = "3EA9E26D9B54A1959179B2694663CF7D";
+// CONFIGURAÇÕES DA Z-API
+const ZAPI_TOKEN = "SEU_TOKEN_AQUI"; // Substitua pelo seu token
+const INSTANCE = "SUA_INSTANCIA_AQUI"; // Substitua pela sua instância
 
 const API = axios.create({
   baseURL: `https://api.z-api.io/instances/${INSTANCE}/token/${ZAPI_TOKEN}`,
-  headers: { "Content-Type": "application/json" }
+  headers: {
+    "Content-Type": "application/json",
+    "client-token": ZAPI_TOKEN
+  }
 });
 
-// ENVIAR TEXTO
-async function sendText(phone, text) {
+// FUNÇÃO PARA ENVIAR MENSAGEM DE TEXTO
+async function sendText(phone, message) {
   try {
-    await API.post("/send-text", {
-      phone,
-      message: { text }
-    });
-    console.log("📤 Enviado:", text);
-  } catch (e) {
-    console.log("❌ Erro sendText:", e.response?.data || e.message);
+    const response = await API.post("/send-text", { phone, message });
+    console.log("📤 Mensagem enviada:", response.data);
+  } catch (error) {
+    console.error("❌ Erro ao enviar mensagem:", error.response?.data || error.message);
   }
 }
 
-// MENU INICIAL
-async function menuInicial(phone) {
-  await sendText(
-    phone,
-    "💁‍♀️ Olá! Eu sou a *Dentina*, assistente virtual da *Ameclin*. Como posso te ajudar?"
-  );
-}
-
-// WEBHOOK
+// WEBHOOK PARA RECEBER MENSAGENS
 app.post("/webhook", async (req, res) => {
   try {
-    const body = req.body;
+    const message = req.body;
 
-    // o campo correto que contém texto é ESTE:
-    const phone = body.phone || body.from;
-    const text = body.text?.message || body.text?.body || null;
+    console.log("📩 Mensagem recebida:", message);
 
-    if (text) {
-      console.log("📩 Recebido:", text);
-      await menuInicial(phone);
+    // Verifica se é uma mensagem de texto
+    if (message && message.text && message.text.message) {
+      const phone = message.phone; // Número do remetente
+      const text = message.text.message.trim(); // Texto da mensagem
+
+      console.log(`📩 Mensagem de ${phone}: ${text}`);
+
+      // Responde automaticamente
+      if (text.toLowerCase() === "oi" || text.toLowerCase() === "olá") {
+        await sendText(phone, "Olá! Eu sou um bot de teste. Como posso te ajudar?");
+      } else {
+        await sendText(phone, "Desculpe, não entendi sua mensagem.");
+      }
     }
 
-    res.sendStatus(200);
-  } catch (e) {
-    console.log("❌ Erro webhook:", e.message);
-    res.sendStatus(500);
+    res.sendStatus(200); // Retorna sucesso para a Z-API
+  } catch (error) {
+    console.error("❌ Erro no webhook:", error.message);
+    res.sendStatus(500); // Retorna erro para a Z-API
   }
 });
-
-app.listen(3000, () => console.log("🚀 Dentina rodando na porta 3000"));
