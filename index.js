@@ -56,10 +56,12 @@ app.post("/webhook", async (req, res) => {
   try {
     const message = req.body;
 
+    console.log("📩 RECEBIDO DA Z-API:", message);
+
     // Verifica se é uma mensagem de texto recebida
-    if (message && message.text && message.text.body) {
-      const phone = message.from; // Número do remetente
-      const text = message.text.body.trim(); // Texto da mensagem
+    if (message && message.text && message.text.message) {
+      const phone = message.phone; // Número do remetente
+      const text = message.text.message.trim(); // Texto da mensagem
 
       console.log(`📩 Mensagem recebida de ${phone}: ${text}`);
 
@@ -81,5 +83,5 @@ app.post("/webhook", async (req, res) => {
 // INICIA O SERVIDOR
 const PORT = 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+  console.log(`🚀 Dentina rodando na porta ${PORT}`);
 });
