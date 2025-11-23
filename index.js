@@ -6,10 +6,11 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// CONFIGURAÇÕES DA Z-API
-const ZAPI_TOKEN = "SEU_TOKEN_AQUI"; // Substitua pelo seu token
-const INSTANCE = "SUA_INSTANCIA_AQUI"; // Substitua pela sua instância
+// 🔐 CONFIG DA Z-API (SEUS DADOS REAIS)
+const ZAPI_TOKEN = "27007D267B55D0B069029678";
+const INSTANCE = "3EA9E26D9B54A1959179B2694663CF7D";
 
+// 🔗 API CLIENT
 const API = axios.create({
   baseURL: `https://api.z-api.io/instances/${INSTANCE}/token/${ZAPI_TOKEN}`,
   headers: {
@@ -18,41 +19,50 @@ const API = axios.create({
   }
 });
 
-// FUNÇÃO PARA ENVIAR MENSAGEM DE TEXTO
+// 📤 FUNÇÃO PARA ENVIAR MENSAGEM
 async function sendText(phone, message) {
   try {
     const response = await API.post("/send-text", { phone, message });
-    console.log("📤 Mensagem enviada:", response.data);
+    console.log("📤 Enviado com sucesso:", response.data);
   } catch (error) {
-    console.error("❌ Erro ao enviar mensagem:", error.response?.data || error.message);
+    console.error("❌ Erro ao enviar:", error.response?.data || error.message);
   }
 }
 
-// WEBHOOK PARA RECEBER MENSAGENS
+// 📩 WEBHOOK (FORMATO REAL DA SUA Z-API)
 app.post("/webhook", async (req, res) => {
   try {
-    const message = req.body;
+    const data = req.body;
 
-    console.log("📩 Mensagem recebida:", message);
+    console.log("📩 RECEBIDO DA Z-API --->", JSON.stringify(data, null, 2));
 
-    // Verifica se é uma mensagem de texto
-    if (message && message.text && message.text.message) {
-      const phone = message.phone; // Número do remetente
-      const text = message.text.message.trim(); // Texto da mensagem
-
-      console.log(`📩 Mensagem de ${phone}: ${text}`);
-
-      // Responde automaticamente
-      if (text.toLowerCase() === "oi" || text.toLowerCase() === "olá") {
-        await sendText(phone, "Olá! Eu sou um bot de teste. Como posso te ajudar?");
-      } else {
-        await sendText(phone, "Desculpe, não entendi sua mensagem.");
-      }
+    // 🟢 Validação correta baseado nos SEUS LOGS
+    if (!data.text || !data.text.message) {
+      console.log("⚠️ Não é mensagem de texto.");
+      return res.sendStatus(200);
     }
 
-    res.sendStatus(200); // Retorna sucesso para a Z-API
+    const message = data.text.message.trim();
+    const phone = data.phone;
+
+    console.log(`📨 Mensagem recebida de ${phone}: ${message}`);
+
+    // 🤖 RESPOSTA DO BOT
+    if (["oi", "olá", "ola"].includes(message.toLowerCase())) {
+      await sendText(phone, "Olá, eu sou a *Dentina*! Como posso ajudar?");
+    } else {
+      await sendText(phone, "Desculpe, não entendi. Você pode repetir?");
+    }
+
+    res.sendStatus(200);
   } catch (error) {
     console.error("❌ Erro no webhook:", error.message);
-    res.sendStatus(500); // Retorna erro para a Z-API
+    res.sendStatus(500);
   }
+});
+
+// 🚀 SERVIDOR
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
 });
