@@ -1,4 +1,6 @@
-// index.js - versão completa, revisada e pronta para deploy na Railway
+/********************************************************************
+ * DENTINA - BOT AMECLIN (Z-API) – VERSÃO FINAL AJUSTADA AO WEBHOOK REAL
+ ********************************************************************/
 
 const express = require("express");
 const axios = require("axios");
@@ -8,8 +10,11 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// CONFIGURAÇÃO DA Z-API
-const ZAPI_TOKEN = "27007D267B55D0B069029678"; 
+/* =======================
+   CONFIG DA Z-API
+========================== */
+
+const ZAPI_TOKEN = "27007D267B55D0B069029678";
 const INSTANCE = "3EA9E26D9B54A1959179B2694663CF7D";
 
 const API = axios.create({
@@ -17,107 +22,145 @@ const API = axios.create({
   headers: { "Content-Type": "application/json" }
 });
 
-// ----------------------------
-// FUNÇÕES DE ENVIO
-// ----------------------------
+/* =======================
+   ENVIO DE MENSAGENS
+========================== */
 
-async function sendText(phone, text) {
-  await API.post("/send-text", {
-    phone,
-    message: text
-  });
+async function sendText(phone, message) {
+  try {
+    await API.post("/send-text", { phone, message });
+    console.log("📤 Enviado:", message);
+  } catch (e) {
+    console.log("❌ Erro ao enviar:", e.response?.data || e.message);
+  }
 }
 
-async function sendMenu(phone, text, options) {
-  await API.post("/send-list-message", {
-    phone,
-    message: text,
-    buttonText: "Selecionar",
-    sections: [
-      {
-        title: "Opções",
-        rows: options.map(opt => ({
-          title: opt.title,
-          rowId: opt.id
-        }))
-      }
-    ]
-  });
+async function sendList(phone, message, title, buttonText, sections) {
+  try {
+    await API.post("/send-list", {
+      phone,
+      message,
+      title,
+      buttonText,
+      sections
+    });
+  } catch (e) {
+    console.log("❌ Erro sendList:", e.response?.data || e.message);
+  }
 }
 
-// ----------------------------
-// MENUS
-// ----------------------------
+async function sendLocation(phone, lat, lng, title, address) {
+  try {
+    await API.post("/send-location", { phone, lat, lng, title, address });
+  } catch (e) {
+    console.log("❌ Erro sendLocation:", e.message);
+  }
+}
+
+/* =======================
+   MENU PRINCIPAL
+========================== */
 
 async function menuInicial(phone) {
-  await sendMenu(phone, "Olá, eu sou a *Dentina*! Como posso ajudar hoje?", [
-    { id: "agendar", title: "📅 Agendar consulta" },
-    { id: "endereco", title: "📍 Endereço" },
-    { id: "contato", title: "📞 Contato" },
-    { id: "horarios", title: "🕒 Horários de atendimento" }
-  ]);
+  const msg =
+`💁‍♀️ Olá! Eu sou a *Dentina*, assistente virtual da *Ameclin*.
+Como posso te ajudar hoje?`;
+
+  const sections = [
+    {
+      title: "Serviços",
+      rows: [
+        { id: "agendar", title: "🗓️ Agendar Avaliação" },
+        { id: "retorno", title: "🔄 Retorno" },
+        { id: "convenios", title: "🧾 Convênios" },
+        { id: "atendente", title: "👩‍⚕️ Falar com Atendente" },
+        { id: "endereco", title: "📍 Endereço" },
+        { id: "horarios", title: "🕒 Horários" }
+      ]
+    }
+  ];
+
+  await sendList(phone, msg, "Menu Ameclin", "Abrir", sections);
 }
 
-// ----------------------------
-// ROTAS Z-API WEBHOOK
-// ----------------------------
+/* =======================
+   WEBHOOK AJUSTADO AO LOG REAL
+========================== */
 
 app.post("/webhook", async (req, res) => {
-  try {
-    const data = req.body;
 
-    if (!data?.message?.text) {
-      return res.sendStatus(200);
-    }
+  console.log("📩 WEBHOOK RECEBIDO:", JSON.stringify(req.body, null, 2));
 
-    const phone = data.message.phone;
-    const msg = data.message.text.trim().toLowerCase();
+  const data = req.body;
 
-    console.log("📥 Mensagem recebida:", msg);
-
-    switch (msg) {
-      case "oi":
-      case "menu":
-      case "início":
-      case "inicio":
-        await menuInicial(phone);
-        break;
-
-      case "agendar":
-        await sendText(phone, "📅 Para agendamentos, envie uma mensagem para nossa equipe:\n👉 *41 99900-0000*");
-        break;
-
-      case "endereco":
-      case "endereço":
-        await sendText(phone, "📍 Estamos na Rua Exemplo, 123 – Curitiba/PR");
-        break;
-
-      case "contato":
-        await sendText(phone, "📞 Telefone/WhatsApp: *41 99900-0000*");
-        break;
-
-      case "horarios":
-        await sendText(phone, "🕒 Segunda a Sexta: 09h–12h / 14h–17h30\nSábado: 09h–12h");
-        break;
-
-      default:
-        await menuInicial(phone);
-        break;
-    }
-
-    res.sendStatus(200);
-
-  } catch (err) {
-    console.error("Erro no webhook:", err);
-    res.sendStatus(500);
+  // TELEFONE
+  const phone = data.phone || data?.message?.phone;
+  if (!phone) {
+    console.log("⚠️ Sem número no webhook.");
+    return res.sendStatus(200);
   }
+
+  // TEXTO (ajustado ao formato real do log)
+  let texto = "";
+
+  if (data.text?.message) {
+    texto = data.text.message.toLowerCase().trim();   // FORMATO REAL DO SEU LOG
+  }
+
+  if (data.message && typeof data.message === "string") {
+    texto = data.message.toLowerCase().trim();        // OUTRO FORMATO QUE VOCÊ RECEBEU
+  }
+
+  const selected = data?.message?.selectedRowId;
+  const acao = selected || texto;
+
+  console.log("🔥 TEXTO CAPTURADO:", texto);
+  console.log("🔥 AÇÃO:", acao);
+
+  // INÍCIO 
+  if (texto === "oi" || texto === "ola" || texto === "/start") {
+    await menuInicial(phone);
+    return res.sendStatus(200);
+  }
+
+  switch (acao) {
+    case "agendar":
+      await sendText(phone, "Você deseja agendar avaliação ou limpeza?");
+      break;
+
+    case "retorno":
+      await sendText(phone, "Informe seu nome completo para localizar seu retorno.");
+      break;
+
+    case "convenios":
+      await sendText(phone, "Convênios Aceitos:\n- Dental Uni\n- Amil");
+      break;
+
+    case "atendente":
+      await sendText(phone, "Chamando uma atendente, por favor aguarde. 😊");
+      break;
+
+    case "endereco":
+      await sendText(phone, "📍 Rua São José dos Pinhais, 200 — Sítio Cercado");
+      await sendLocation(phone, -25.5175, -49.2711, "Ameclin", "Ameclin Odontologia");
+      break;
+
+    case "horarios":
+      await sendText(phone, "🕒 Seg–Sex: 09h–12h / 14h–17h30\nSáb: 09h–12h");
+      break;
+
+    default:
+      await menuInicial(phone);
+      break;
+  }
+
+  res.sendStatus(200);
 });
 
-// ----------------------------
-// INICIAR SERVIDOR
-// ----------------------------
+/* =======================
+   SERVIDOR
+========================== */
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log("🤖 Dentina rodando na porta " + PORT);
+app.listen(3000, () => {
+  console.log("🚀 Dentina Online na Porta 3000");
 });
