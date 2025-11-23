@@ -7,8 +7,8 @@ app.use(express.json());
 app.use(cors());
 
 // CONFIG DA Z-API
-const ZAPI_TOKEN = "27007D267B55D0B069029678";
-const INSTANCE = "3EA9E26D9B54A1959179B2694663CF7D";
+const ZAPI_TOKEN = "27007D267B55D0B069029678"; // Substitua pelo seu token
+const INSTANCE = "3EA9E26D9B54A1959179B2694663CF7D"; // Substitua pela sua instância
 
 const API = axios.create({
   baseURL: `https://api.z-api.io/instances/${INSTANCE}/token/${ZAPI_TOKEN}`,
@@ -19,51 +19,67 @@ const API = axios.create({
 async function sendText(phone, message) {
   try {
     await API.post("/send-text", { phone, message });
-    console.log("📤 Enviado para:", phone);
+    console.log("📤 Mensagem enviada para:", phone);
   } catch (e) {
-    console.log("❌ Erro sendText:", e.response?.data || e.message);
+    console.log("❌ Erro ao enviar mensagem:", e.response?.data || e.message);
   }
 }
 
 // MENU PRINCIPAL
 async function menuInicial(phone) {
-  await sendText(
-    phone,
-    "💁‍♀️ Olá! Eu sou a *Dentina*, assistente virtual da *Ameclin*. Como posso te ajudar?"
-  );
+  const message = `
+💁‍♀️ Olá! Eu sou a *Dentina*, assistente virtual da *Ameclin*. Como posso te ajudar?
+
+1️⃣ - Agendar consulta
+2️⃣ - Informações sobre a clínica
+3️⃣ - Falar com um atendente
+  `;
+  await sendText(phone, message);
 }
 
-// WEBHOOK CORRETO PARA O SEU FORMATO REAL
+// RESPOSTAS AUTOMÁTICAS
+async function responderMensagem(phone, text) {
+  if (text === "1") {
+    await sendText(phone, "📅 Para agendar uma consulta, entre em contato pelo telefone: (43) 3771-0050.");
+  } else if (text === "2") {
+    await sendText(phone, "🏥 A Ameclin está localizada na Rua Saúde, 123. Nosso horário de atendimento é de segunda a sexta, das 8h às 18h.");
+  } else if (text === "3") {
+    await sendText(phone, "📞 Um atendente entrará em contato com você em breve. Obrigado!");
+  } else {
+    await sendText(phone, "❓ Desculpe, não entendi sua mensagem. Por favor, escolha uma das opções do menu.");
+    await menuInicial(phone); // Reenvia o menu inicial
+  }
+}
+
+// WEBHOOK (RECEBE MENSAGENS)
 app.post("/webhook", async (req, res) => {
-  console.log("📩 RECEBIDO:", JSON.stringify(req.body, null, 2));
-
   try {
-    const data = req.body;
+    const message = req.body;
 
-    // Número do remetente
-    const phone = data.phone;
+    // Verifica se é uma mensagem de texto recebida
+    if (message && message.text && message.text.body) {
+      const phone = message.from; // Número do remetente
+      const text = message.text.body.trim(); // Texto da mensagem
 
-    // TEXTO REAL RECEBIDO — SEU FORMATO VERDADEIRO
-    const texto =
-      data?.text?.message || data?.text?.body || data?.message || "";
+      console.log(`📩 Mensagem recebida de ${phone}: ${text}`);
 
-    if (!phone || !texto) {
-      console.log("⚠️ Sem texto ou telefone");
-      return res.sendStatus(200);
+      // Responde com base no texto recebido
+      if (text.toLowerCase() === "oi" || text.toLowerCase() === "olá") {
+        await menuInicial(phone); // Envia o menu inicial
+      } else {
+        await responderMensagem(phone, text); // Responde com base na opção escolhida
+      }
     }
 
-    console.log(`📥 Mensagem de ${phone}: ${texto}`);
-
-    // Responder
-    await menuInicial(phone);
-
-    return res.sendStatus(200);
+    res.sendStatus(200); // Retorna sucesso para a Z-API
   } catch (e) {
-    console.log("❌ ERRO NO WEBHOOK:", e);
-    return res.sendStatus(500);
+    console.log("❌ Erro no webhook:", e.message);
+    res.sendStatus(500); // Retorna erro para a Z-API
   }
 });
 
-app.listen(3000, () => {
-  console.log("🤖 Dentina rodando na porta 3000");
+// INICIA O SERVIDOR
+const PORT = 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
 });
