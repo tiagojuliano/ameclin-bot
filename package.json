@@ -1,7 +1,7 @@
 {
   "name": "ameclin-bot",
   "version": "1.0.0",
-  "description": "Bot Dentina WhatsApp usando Z-API e Node.js",
+  "description": "Bot da Dentista",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
