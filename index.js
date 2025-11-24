@@ -6,9 +6,9 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// ================================
+// ===========================================
 // CONFIG Z-API
-// ================================
+// ===========================================
 const INSTANCE = "3EA9E26D9B54A1959179B2694663CF7D";
 const ZAPI_TOKEN = "27007D267B55D0B069029678";
 
@@ -20,73 +20,75 @@ const API = axios.create({
   }
 });
 
-// ================================
-// ENVIAR MENSAGEM
-// ================================
+// ===========================================
+// FUNÇÃO PARA ENVIAR MENSAGEM
+// ===========================================
 async function sendMessage(phone, message) {
   try {
-    const result = await API.post("/send-text", { phone, message });
-    console.log("📤 Mensagem enviada:", result.data);
+    const res = await API.post("/send-text", {
+      phone,
+      message
+    });
+
+    console.log("📤 Mensagem enviada:", res.data);
   } catch (err) {
-    console.error("❌ Erro ao enviar:", err.response?.data || err.message);
+    console.error("❌ Erro ao enviar mensagem:", err.response?.data || err.message);
   }
 }
 
-// ================================
-// WEBHOOK (SUPER TOLERANTE)
-// ================================
+// ===========================================
+// ROTA DE WEBHOOK (RECEBE Z-API)
+// ===========================================
 app.post("/webhook", async (req, res) => {
-  const body = req.body;
+  console.log("📩 Webhook recebido da Z-API:");
+  console.log(JSON.stringify(req.body, null, 2));
 
-  console.log("📩 Webhook recebido:", JSON.stringify(body, null, 2));
+  const data = req.body;
 
   let phone = "";
   let text = "";
 
-  // 🌐 FORMATO 1 (comum)
-  if (body.phone && body.text) {
-    phone = body.phone;
-    text = body.text;
+  // Formato 1 — comum
+  if (data.phone && data.text) {
+    phone = data.phone;
+    text = data.text;
   }
 
-  // 🌐 FORMATO 2 (multi-device)
-  if (body.message?.text) {
-    phone = body.message.sender?.replace("@c.us", "");
-    text = body.message.text;
+  // Formato 2 — message.text
+  if (data.message?.text) {
+    phone = data.message.sender?.replace("@c.us", "");
+    text = data.message.text;
   }
 
-  // 🌐 FORMATO 3 (messages array)
-  if (body.messages && Array.isArray(body.messages)) {
-    const m = body.messages[0];
-    if (m) {
-      phone = m.from?.replace("@c.us", "");
-      text = m.text || m.body;
-    }
+  // Formato 3 — array messages
+  if (Array.isArray(data.messages) && data.messages.length > 0) {
+    const m = data.messages[0];
+    phone = m.from?.replace("@c.us", "");
+    text = m.text || m.body;
   }
 
   if (!phone || !text) {
-    console.log("⚠️ Ignorado: sem texto ou número.");
+    console.log("⚠️ Ignorado: sem texto ou telefone.");
     return res.sendStatus(200);
   }
 
-  console.log(`📨 Mensagem de ${phone}: ${text}`);
+  console.log(`📨 Mensagem recebida de ${phone}: ${text}`);
 
-  // 🤖 BOT
-  const t = text.toLowerCase();
+  const lower = text.toLowerCase();
 
-  if (["oi", "olá", "ola", "bom dia", "boa tarde", "boa noite"].includes(t)) {
+  if (["oi", "ola", "olá", "bom dia", "boa tarde", "boa noite"].includes(lower)) {
     await sendMessage(phone, "Olá! Eu sou a Dentina 🦷✨ Como posso ajudar?");
   } else {
-    await sendMessage(phone, "Desculpe, não entendi. Pode repetir?");
+    await sendMessage(phone, "Não entendi, pode repetir?");
   }
 
-  res.sendStatus(200);
+  return res.sendStatus(200);
 });
 
-// ================================
-// SERVIDOR
-// ================================
-const PORT = process.env.PORT || 3000;
+// ===========================================
+// SERVIDOR (IMPORTANTE! process.env.PORT)
+// ===========================================
+const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
